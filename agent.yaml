@@ -6,7 +6,14 @@ metadata:
 data:
   install.sh: |
     #/bin/bash
-    # add repo
+    serviceName="wazuh-agent"
+    if systemctl --all --type service | grep -q "$serviceName"; then
+      echo "wazuh-agent found, restarting"
+      systemctl daemon-reload
+      systemctl restart wazuh-agent
+    else
+      echo "wazuh-agent not found, installing"
+      # add repo
     rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
     cat > /etc/yum.repos.d/wazuh.repo << EOF
     [wazuh]
@@ -17,6 +24,7 @@ data:
     baseurl=https://packages.wazuh.com/4.x/yum/
     protect=1
     EOF
+
     # remove previous agent 
     yum remove -y wazuh-agent 
     # install
@@ -30,6 +38,9 @@ data:
     systemctl start wazuh-agent
     # disable automatic upgrade
     sed -i "s/^enabled=1/enabled=0/" /etc/yum.repos.d/wazuh.repo
+    fi
+
+    systemctl -l status wazuh-agent
 ---
 apiVersion: apps/v1
 kind: DaemonSet
