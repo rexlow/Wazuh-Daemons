@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wazuh-agent-config
+  namespace: wazuh
+data:
+  install.sh: |
+    #/bin/bash
+    # add repo
+    rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    cat > /etc/yum.repos.d/wazuh.repo << EOF
+    [wazuh]
+    gpgcheck=1
+    gpgkey=https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    enabled=1
+    name=EL-$releasever - Wazuh
+    baseurl=https://packages.wazuh.com/4.x/yum/
+    protect=1
+    EOF
+    # remove previous agent 
+    yum remove -y wazuh-agent 
+    # install
+    yum install -y wazuh-agent
+    echo "copying ossec files"
+    cp /var/ossec.conf /var/authd.pass /var/ossec/etc/
+    /var/ossec/bin/agent-auth -m 192.168.154.93
+    # reload
+    systemctl daemon-reload
+    systemctl enable wazuh-agent
+    systemctl start wazuh-agent
+    # disable automatic upgrade
+    sed -i "s/^enabled=1/enabled=0/" /etc/yum.repos.d/wazuh.repo
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: wazuh-agent
+  namespace: wazuh
+spec:
+  selector:
+    matchLabels:
+      job: wazuh-agent
+  template:
+    metadata:
+      labels:
+        job: wazuh-agent
+    spec:
+      hostPID: true
+      hostIPC: true
+      restartPolicy: Always
+      containers:
+      - image: rexlow/wazuh-agent:latest
+        imagePullPolicy: Always
+        name: wazuh-agent
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: install-script
+          mountPath: /tmp
+        - name: host-mount
+          mountPath: /host
+        - mountPath: /var/run
+          name: var-run
+        - mountPath: /host/dev
+          name: dev
+        - mountPath: /host/sys
+          name: sys
+          readOnly: true
+        - mountPath: /host/proc
+          name: proc
+          readOnly: true
+        - mountPath: /host/etc
+          name: etc
+          readOnly: true
+        - mountPath: /var/run/docker.sock
+          name: docker-socket-mount
+        - mountPath: /host/var/run/docker.sock
+          name: docker-socket-mount
+        - mountPath: /host/boot
+          name: boot
+          readOnly: true
+        - mountPath: /host/usr
+          name: usr
+          readOnly: true
+        - mountPath: /host/lib/modules
+          name: modules
+          readOnly: true
+        - mountPath: /host/var/log
+          name: log
+          readOnly: true
+      volumes:
+      - name: install-script
+        configMap:
+          name: wazuh-agent-config
+      - name: host-mount
+        hostPath:
+          path: /var
+      - name: docker-socket-mount
+        hostPath:
+          path: /var/run/docker.sock
+      - name: var-run
+        hostPath:
+          path: /var/run
+      - name: dev
+        hostPath:
+          path: /dev
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: etc
+        hostPath:
+          path: /etc
+      - name: boot
+        hostPath:
+          path: /boot
+      - name: usr
+        hostPath:
+          path: /usr
+      - name: modules
+        hostPath:
+          path: /lib/modules
+      - name: log
+        hostPath:
+          path: /var/log
