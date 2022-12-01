@@ -12,9 +12,8 @@ This repo installs wazuh-agent in CentOS. If you're deploying it in other OS, fe
 
 ## Configuration
 
-1. Replace manager IP in `agent.yaml` line 26.
-2. Replace workers IP in `ossec.conf` line 4.
-3. Replace your dockerhub handler in `build.sh`
+1. Replace `your-domain.com` across all files with your wazuh domain.
+2. Replace your dockerhub handler in `build.sh`
 
 ## Installation
 
